@@ -56,6 +56,7 @@ const elements = {
 	thead: document.getElementById('thead'),
 	tbody: document.getElementById('tbody'),
 	noteMissing: document.getElementById('noteMissing'),
+	noteSkipped: document.getElementById('noteSkipped'),
 	noteFormat: document.getElementById('noteFormat'),
 	noteMerges: document.getElementById('noteMerges'),
 	noteSkew: document.getElementById('noteSkew'),
@@ -148,6 +149,11 @@ function renderCopy(view) {
 	const missing = OPTIONAL_DATA.filter(([key]) => !library.available[key]).map(([, label]) => label);
 	elements.noteMissing.hidden = missing.length === 0;
 	elements.noteMissing.textContent = `Not in this backup: ${missing.join(', ')}.`;
+
+	elements.noteSkipped.hidden = library.skipped === 0;
+	elements.noteSkipped.textContent =
+		`Left out: ${formatCount(library.skipped)} ${library.skipped === 1 ? 'title that was' : 'titles that were'} ` +
+		'read but never added to the library.';
 
 	elements.pieSub.textContent = `Top ${view.namedShown} genres; the rest pooled. Slices are shares of the ${formatCount(totalTags)} tags in view.`;
 	elements.barSub.textContent = `${formatCount(ranked.length)} genres in this selection.`;

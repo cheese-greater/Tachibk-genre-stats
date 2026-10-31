@@ -8,7 +8,7 @@
  * Field numbers come from Mihon's own backup schema (proto2):
  *   Backup        backupManga = 1   backupSources = 101
  *   BackupManga   source = 1  title = 3  genre = 7  status = 8
- *                 chapters = 16  history = 104
+ *                 chapters = 16  favorite = 100  history = 104
  *   BackupChapter read = 4  bookmark = 5
  *   BackupHistory readDuration = 3
  *   BackupSource  name = 1   sourceId = 2
@@ -29,6 +29,7 @@ const FIELD_MANGA_TITLE = 3;
 const FIELD_MANGA_GENRE = 7;
 const FIELD_MANGA_STATUS = 8;
 const FIELD_MANGA_CHAPTERS = 16;
+const FIELD_MANGA_FAVORITE = 100;
 const FIELD_MANGA_HISTORY = 104;
 
 const FIELD_CHAPTER_READ = 4;
@@ -136,6 +137,10 @@ function emptyTitle() {
 	return {
 		title: '',
 		sourceId: '0',
+		// Mihon's own default, so the field is usually absent. A backup can also
+		// carry titles that were read but never added to the library; those are
+		// written with the flag explicitly off.
+		inLibrary: true,
 		genres: [],
 		status: null,
 		chapters: null,
@@ -166,7 +171,7 @@ export function decodeBackup(bytes) {
 
 	if (!titles.length) {
 		// Structurally valid, just empty: worth saying plainly.
-		const error = new Error('That backup has no library entries in it.');
+		const error = new Error('That backup has no titles in it.');
 		error.isBackup = true;
 		throw error;
 	}
@@ -196,6 +201,8 @@ function decodeManga(bytes) {
 			manga.chapters = (manga.chapters ?? 0) + 1;
 			manga.chaptersRead = (manga.chaptersRead ?? 0) + (chapter.read ? 1 : 0);
 			manga.bookmarks = (manga.bookmarks ?? 0) + (chapter.bookmark ? 1 : 0);
+		} else if (field === FIELD_MANGA_FAVORITE && wire === WIRE_VARINT) {
+			manga.inLibrary = reader.varint() !== 0n;
 		} else if (field === FIELD_MANGA_HISTORY && wire === WIRE_BYTES) {
 			const duration = decodeHistoryDuration(reader.view());
 			manga.historyRows = (manga.historyRows ?? 0) + 1;
@@ -282,6 +289,7 @@ function normaliseJson(parsed) {
 			const manga = emptyTitle();
 			manga.title = String(entry.title ?? 'Untitled');
 			manga.sourceId = String(entry.source ?? '0');
+			manga.inLibrary = Boolean(entry.favorite ?? true);
 			manga.genres = Array.isArray(entry.genre) ? entry.genre.map((genre) => String(genre)) : [];
 			manga.status = Number.isFinite(Number(entry.status)) && entry.status !== undefined ? Number(entry.status) : null;
 
@@ -303,7 +311,7 @@ function normaliseJson(parsed) {
 		});
 
 	if (!titles.length) {
-		const error = new Error('That backup has no library entries in it.');
+		const error = new Error('That backup has no titles in it.');
 		error.isBackup = true;
 		throw error;
 	}

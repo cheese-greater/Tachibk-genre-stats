@@ -60,7 +60,22 @@ export function statusName(status) {
 export function buildLibrary(parsed) {
 	const sourceNames = new Map(parsed.sources.map((source) => [source.id, source.name]));
 
-	const spellings = collectSpellings(parsed.titles);
+	/*
+	 * A backup made with "read entries that are not in library" ticked also
+	 * carries titles that were only ever opened, never added. They are not the
+	 * library, so they are dropped before anything is counted, and the number
+	 * dropped is kept so the page can say so.
+	 */
+	const entries = parsed.titles.filter((entry) => entry.inLibrary);
+	const skipped = parsed.titles.length - entries.length;
+	if (!entries.length) {
+		throw new Error(
+			`That backup has no library titles in it: ${skipped === 1 ? 'its one entry was' : `all ${skipped} entries were`} ` +
+				'read but never added to the library.'
+		);
+	}
+
+	const spellings = collectSpellings(entries);
 	const { canonical, merges } = resolveSpellings(spellings);
 
 	const sources = [];
@@ -69,7 +84,7 @@ export function buildLibrary(parsed) {
 	const genreIndexes = new Map();
 	const titles = [];
 
-	for (const entry of parsed.titles) {
+	for (const entry of entries) {
 		if (!sourceIndexes.has(entry.sourceId)) {
 			sourceIndexes.set(entry.sourceId, sources.length);
 			sources.push({
@@ -121,6 +136,7 @@ export function buildLibrary(parsed) {
 		formatFlags,
 		formatNames: genres.filter((name, index) => formatFlags[index]),
 		merges,
+		skipped,
 		totalTags: titles.reduce((sum, entry) => sum + entry.genres.length, 0),
 		// What this particular backup actually contains.
 		available: {
